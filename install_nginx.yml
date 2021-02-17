@@ -1,0 +1,22 @@
+---
+
+- name: Provision a nginx
+  hosts: backend
+  become: yes
+  become_user: root
+  remote_user: root
+
+  pre_tasks:
+    - name: Update repositories cache
+      apt:
+        update_cache: yes
+
+  vars:
+    pip_install_packages:
+      - name: docker
+
+  roles:
+    - add_swap
+    - geerlingguy.pip
+    - geerlingguy.docker
+    - install_nginx

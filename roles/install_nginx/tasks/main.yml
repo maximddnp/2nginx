@@ -1,0 +1,50 @@
+---
+
+- name: "Create the {{ nginx_base_dir }} on the host"
+  become: yes
+  file:
+    path: "{{ nginx_base_dir }}"
+    state: 'directory'
+    mode: '0755'
+
+- name: Put the nginx.conf file
+  become: yes
+  copy:
+    content: "{{ nginx_conf }}"
+    dest: "{{ nginx_base_dir }}/nginx.conf"
+    mode: '0644'
+  notify: restart-nginx
+
+- name: "Copy the default html contents to {{ nginx_base_dir }}/defaults on the host"
+  become: yes
+  copy:
+    src: "{{ nginx_static_html_directory }}/"
+    dest: "{{ nginx_base_dir }}/defaults"
+    mode: '0644'
+  notify: restart-nginx
+
+- name: create directory for conf.d nginx
+  file:
+    path: "{{ nginx_reverse_proxy_config_dir }}"
+    state: directory
+
+- name: deploy reverse proxy configurations
+  template:
+    src: reverse-proxy.conf.j2
+    dest: "{{ nginx_reverse_proxy_config_dir }}/{{ item.config_name }}.conf"
+  with_items: "{{ nginx_reverse_proxy_proxies }}"
+  notify: restart-nginx
+
+- name: Run nginx docker container
+  become: yes
+  docker_container:
+    image: "nginx:{{ nginx_docker_version_tag }}"
+    name: nginx
+    volumes: "{{ exposed_volumes }}"
+    ports: "{{ published_ports }}"
+    exposed_ports: "{{ exposed_ports }}"
+    state: 'started'
+    restart_policy: 'always'
+    log_driver: 'syslog'
+    log_options:
+      tag: nginx
